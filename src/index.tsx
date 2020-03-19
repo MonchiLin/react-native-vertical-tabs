@@ -24,6 +24,15 @@ const sumBy = (initialValue = 0, fn, arr) => {
   }, initialValue);
 };
 
+function debounce(fn, wait = 1) {
+  let timeout;
+  return function(...args) {
+    clearTimeout(timeout);
+    // @ts-ignore
+    timeout = setTimeout(() => fn.call(this, ...args), wait);
+  };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const defaultKeyExtractor = (_: any, index: number) => {
   return index.toString();
@@ -86,7 +95,7 @@ const VerticalTabs = <ContentItem, TabBarItem>({
   onIndexChange
 }: Props<ContentItem, TabBarItem>) => {
   // 是否正在滚动
-  const isScrolling = useRef(false);
+  const isAutoScrolling = useRef(false);
 
   // 开始滚动是的 y 轴位置，用于计算滚动方向
   const offsetY = useRef(0);
@@ -96,38 +105,39 @@ const VerticalTabs = <ContentItem, TabBarItem>({
 
   const scrollViewRef = useRef(null);
 
-  const onScroll = useCallback(
-    e => {
-      if (isScrolling.current) {
-        return;
-      }
-      e.persist();
-      const { y } = e.nativeEvent.contentOffset;
+  const changeIndex = useCallback(debounce(onIndexChange, 100), []);
 
-      // 如果 y 小于 0 则表示滚动到顶部了
-      if (y <= 0) {
-        onIndexChange(head(viewInfoRef.current).index);
-        return;
-      }
+  const onScroll = useCallback(e => {
+    if (isAutoScrolling.current) {
+      return;
+    }
+    e.persist();
+    const { y } = e.nativeEvent.contentOffset;
 
-      // 是否是向下滑动的
-      const downward = offsetY.current < y;
-      const classification = viewInfoRef.current.find(item => {
-        return downward
-          ? y < item.accumulationHeight - item.height
-          : y < item.accumulationHeight - item.height;
-      });
+    console.log('onScroll', e.nativeEvent.contentOffset);
 
-      const item =
-        classification || (downward ? tail(viewInfoRef.current) : head(viewInfoRef.current));
+    // 如果 y 小于 0 则表示滚动到顶部了
+    if (y <= 0) {
+      changeIndex(head(viewInfoRef.current).index);
+      return;
+    }
 
-      onIndexChange(item.index);
-    },
-    [onIndexChange]
-  );
+    // 是否是向下滑动的
+    const downward = offsetY.current < y;
+    const classification = viewInfoRef.current.find(item => {
+      return downward
+        ? y < item.accumulationHeight - item.height
+        : y < item.accumulationHeight - item.height;
+    });
+
+    const item =
+      classification || (downward ? tail(viewInfoRef.current) : head(viewInfoRef.current));
+
+    changeIndex(item.index);
+  }, []);
 
   const adjustContent = useCallback(index => {
-    isScrolling.current = true;
+    isAutoScrolling.current = true;
     const accumulationHeight = sumBy(0, prop('height'), viewInfoRef.current.slice(0, index));
 
     scrollViewRef.current.scrollTo({
@@ -141,7 +151,7 @@ const VerticalTabs = <ContentItem, TabBarItem>({
   };
 
   const onScrollEndDrag = () => {
-    isScrolling.current = false;
+    isAutoScrolling.current = false;
   };
 
   const onLayout = useCallback((e: LayoutChangeEvent, index: number) => {
