@@ -1,6 +1,6 @@
 {
   "name": "@monchilin/react-native-vertical-tabs",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "scripts": {
     "lint": "eslint . --ext .tsx",
     "fix": "eslint . --ext .tsx --fix",
